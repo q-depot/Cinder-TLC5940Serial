@@ -16,11 +16,13 @@
 
 #include "cinder/Serial.h"
 
-#define BAUD_RATE           115200
-#define MAX_NUM_TLCS        12                                      // max number of TLCs in the daisy chain
+#define TLC_BAUD_RATE       115200
+#define TLC_MAX_NUM_DEVICES 12                                      // max number of TLCs in the daisy chain
 #define TLC_NUM_CHANNELS    16                                      // number of outputs for each TLC
-#define DATA_PACKET_SIZE    MAX_NUM_TLCS * TLC_NUM_CHANNELS * 2     // max packet size, 2 bytes per channel
 #define TLC_MAX_VALUE       4095
+#define TLC_CMD_BYTE        0x80
+#define TLC_DATA_BYTE       0x7F
+#define TLC_HIGH_BYTE       0xFF80
 
 
 typedef std::shared_ptr<class TlcSerial> TlcSerialRef;
@@ -50,7 +52,7 @@ public:
     void setZeros();
 
     //! Get the current device name
-    std::string  getDeviceName() { return mSerialDevicePath; }
+    std::string  getDeviceName() { return mSerialDeviceName; }
     
     //! Get the total number of TLCs
     uint8_t getNumTlcs() { return mNumTlcs; }
@@ -72,9 +74,10 @@ private:
 
 private:
     
-    unsigned char       *mDataPacket;
+    uint8_t             *mDataPacket;
+    uint8_t             mDataPacketSize;
     ci::Serial          *mSerial;
-    std::string         mSerialDevicePath;		// usb serial device path
+    std::string         mSerialDeviceName;		// usb serial device name
     uint8_t             mNumTlcs;
 
 };

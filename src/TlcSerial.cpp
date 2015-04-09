@@ -17,26 +17,27 @@ using namespace ci::app;
 using namespace std;
 
 
-TlcSerial::TlcSerial( const string &serialDevicePath, int numTlcs )
+TlcSerial::TlcSerial( const string &deviceName, int numTlcs )
 {
-    mSerialDevicePath   = serialDevicePath;
+    mSerialDeviceName   = deviceName;
     mSerial             = nullptr;
-    mDataPacket         = new unsigned char[DATA_PACKET_SIZE];
-    mNumTlcs            = min( numTlcs, MAX_NUM_TLCS );
+    mNumTlcs            = min( numTlcs, TLC_MAX_NUM_DEVICES );
+    mDataPacketSize     = mNumTlcs * TLC_NUM_CHANNELS * 2 + 1;      // data + 1 cmd byte
+    mDataPacket         = new unsigned char[ mDataPacketSize ];
     
     setZeros();
 
     // Initialised Serial
     try
     {
-        Serial::Device dev  = Serial::findDeviceByNameContains( mSerialDevicePath );
-        mSerial             = new Serial( dev, BAUD_RATE );
+        Serial::Device dev  = Serial::findDeviceByNameContains( mSerialDeviceName );
+        mSerial             = new Serial( dev, TLC_BAUD_RATE );
         
-        console() << "Connected to serial device: " << mSerialDevicePath << endl;
+        console() << "Connected to serial device: " << mSerialDeviceName << endl;
     }
     catch ( ... )
     {
-        console() << "Cannot connect to serial device: " << mSerialDevicePath << endl;
+        console() << "Cannot connect to serial device: " << mSerialDeviceName << endl;
         exit(-1);
     }
 }
@@ -44,31 +45,38 @@ TlcSerial::TlcSerial( const string &serialDevicePath, int numTlcs )
 
 TlcSerial::~TlcSerial()
 {
+    memset( mDataPacket, 0 ,mDataPacketSize );
+    
+    if ( mSerial )
+        mSerial->writeBytes( mDataPacket, mDataPacketSize );
+    
     delete []mDataPacket;
 }
 
 
 void TlcSerial::setZeros()
 {
-    memset (mDataPacket, 0 ,DATA_PACKET_SIZE);
+    memset( mDataPacket, 0 ,mDataPacketSize );
+    
+    mDataPacket[0] = TLC_CMD_BYTE;
 }
 
 
 void TlcSerial::setValue( int ch, float valNorm )
-{
+    {   
     if ( ch >= mNumTlcs * TLC_NUM_CHANNELS )
         return;
     
     uint16_t val            = TLC_MAX_VALUE * valNorm;
-    mDataPacket[ch*2]       = ( val & 0xFF00 ) >> 8;        // high byte
-    mDataPacket[ch*2+1]     = val & 0x00FF;                 // low byte
+    mDataPacket[1+ch*2]     = ( val >> 7 ) & TLC_DATA_BYTE;        // high byte
+    mDataPacket[1+ch*2+1]   = val & TLC_DATA_BYTE;                 // low byte
 }
 
 
 void TlcSerial::sendData()
 {
     if ( mSerial )
-        mSerial->writeBytes( mDataPacket, mNumTlcs * TLC_NUM_CHANNELS * 2 );
+        mSerial->writeBytes( mDataPacket, mDataPacketSize );
 }
 
 

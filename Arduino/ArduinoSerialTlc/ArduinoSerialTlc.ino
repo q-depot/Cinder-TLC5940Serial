@@ -1,9 +1,4 @@
 /*
-* ArduinoSerialTlc
-* read and combine two consecutive bytes, range −32768 > 32767
-*/
-
-/*
     Basic Pin setup:
     ------------                                  ---u----
     ARDUINO   13|-> SCLK (pin 25)           OUT1 |1     28| OUT channel 0
@@ -48,16 +43,28 @@
     This library uses the PWM output ability of digital pins 3, 9, 10, and 11.
     Do not use analogWrite(...) on these pins.
 
-    This sketch does the Knight Rider strobe across a line of LEDs.
-
     Alex Leone <acleone ~AT~ gmail.com>, 2009-02-03 
 */
 
+
+/*
+ *  ArduinoSerialTlc.ino
+ *
+ *  Created by Andrea Cuius
+ *  The MIT License (MIT)
+ *  Copyright (c) 2015 Nocte Studio Ltd.
+ *
+ *  www.nocte.co.uk
+ *
+ */
+ 
 
 #include "Tlc5940.h"
 
 const int numTlcs             = 1;
 const int totalNumChannels    = numTlcs * 16;
+const int CMD_BYTE            = 0x80;
+const int DATA_BYTE           = 0x7F;
 
 int tlcOutputs[totalNumChannels];
 int tlcOutputIdx;
@@ -88,7 +95,7 @@ void loop()
     
     Tlc.clear();
 
-    for( int k=0; k < tlcNumOutputs; k++ )
+    for( int k=0; k < totalNumChannels; k++ )
         Tlc.set( k, tlcOutputs[k] );
 
     Tlc.update();
@@ -103,18 +110,30 @@ void parseSerial()
     {
         inByte = Serial.read();
 
-        if ( serialCount % 2 == 0 )                       // first byte HIGH
+        // parse Command
+        if ( inByte & CMD_BYTE )
         {
-            inValue = ( inByte << 8 ) & 0xFF00;
+            tlcOutputIdx  = 0;
+            serialCount   = 0;
+
+            continue;
+        }
+
+        // parse data
+        if ( serialCount % 2 == 0 )                 // first byte HIGH
+        {
+            inValue = ( inByte & DATA_BYTE ) << 7;
             serialCount++;
         }
         else                                        // second byte LOW
         {
-            inValue                     = inValue | inByte;
+            inValue                     = inValue | ( inByte & DATA_BYTE );
             tlcOutputs[tlcOutputIdx]    = inValue;
             tlcOutputIdx                = ( tlcOutputIdx + 1 ) % totalNumChannels;
             serialCount                 = 0;
         }
+
+        
     }
 }
 
